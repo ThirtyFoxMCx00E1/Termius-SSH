@@ -1,0 +1,8 @@
+PubkeyAuthentication yes
+HostbasedAuthentication no
+PasswordAuthentication no
+AllowGroups remote
+LogLevel DEBUG3
+SyslogFacility AUTH
+ForceCommand /usr/local/bin/authy-ssh login
+PrintLastLog no

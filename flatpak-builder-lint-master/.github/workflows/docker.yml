@@ -1,0 +1,325 @@
+name: Docker
+
+on:
+  workflow_call:
+    secrets:
+      FLATHUB_ORG_USER:
+        required: true
+      FLATHUB_ORG_TOKEN:
+        required: true
+  workflow_dispatch:
+
+jobs:
+  docker:
+    strategy:
+      matrix:
+        include:
+          - os: ubuntu-24.04
+            platform: amd64
+          - os: ubuntu-24.04-arm
+            platform: arm64
+    runs-on: ${{matrix.os}}
+    timeout-minutes: 180
+    if: github.repository == 'flathub-infra/flatpak-builder-lint' && github.ref == 'refs/heads/master'
+    concurrency:
+      group: ${{matrix.os}}-${{ github.ref }}-docker
+      cancel-in-progress: true
+    permissions:
+      contents: read
+      packages: write
+    steps:
+      - name: Free up disk space
+        run: |
+          sudo swapoff -a || true
+          sudo rm -rf /opt/ghc /usr/local/.ghcup || true
+          sudo rm -rf /opt/hostedtoolcache/CodeQL || true
+          sudo rm -rf /usr/local/julia*
+          sudo rm -rf /opt/hostedtoolcache/go /opt/az /opt/microsoft
+          sudo rm -rf /usr/share/miniconda /home/runner/.rustup /home/packer/.rustup /home/runneradmin/.rustup
+          sudo rm -rf /etc/skel/.rustup /opt/hostedtoolcache/node /opt/google-cloud-sdk
+          sudo rm -rf /usr/share/az_* /opt/google /usr/lib/firefox /usr/local/aws-*
+          sudo rm -rf /opt/actionarchivecache /opt/hostedtoolcache/Ruby
+          sudo rm -rf /var/lib/mysql /usr/local/n
+          sudo rm -rf /swapfile || true
+          sudo rm -rf /usr/local/lib/android
+          sudo rm -rf /usr/share/dotnet /usr/share/swift
+          sudo rm -rf /usr/local/share/boost /usr/local/share/powershell
+          sudo rm -rf /usr/lib/google-cloud-sdk /usr/lib/jvm
+          sudo rm -rf /usr/local/graalvm /usr/local/share/chromium
+          sudo rm -rf /usr/local/lib/node_modules
+          sudo rm -rf /usr/lib/dotnet /usr/lib/php /usr/share/mysql
+          sudo rm -rf /usr/lib/llvm-*
+          sudo rm -rf /usr/lib/mono
+          sudo apt-get clean || true
+          sudo rm -rf /var/lib/apt/lists/*
+          timeout 5 df -hHl || true
+          timeout 5 free -h --giga || true
+          timeout 60 sudo du -xh --max-depth=3 / 2>/dev/null | sort -rh | head -40 || true
+
+        # 6.0.2
+      - uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd
+        if: github.repository == 'flathub-infra/flatpak-builder-lint' && github.ref == 'refs/heads/master'
+        with:
+          fetch-depth: 0
+          persist-credentials: false
+
+      - name: Set up Docker Buildx
+        # 3.12.0
+        uses: docker/setup-buildx-action@8d2750c68a42422c14e847fe6c8ac0403b4cbd6f
+
+      - name: Login to ghcr.io
+        # 3.6.0
+        uses: docker/login-action@5e57cd118135c172c3672efd75eb46360885c0ef
+        with:
+          registry: ghcr.io
+          username: ${{ github.actor }}
+          password: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: Install dependencies
+        run: |
+          sudo add-apt-repository ppa:flatpak/stable
+          sudo apt-get update
+          sudo apt update && sudo apt install -y \
+            --no-install-recommends flatpak dbus-daemon git python3 \
+            ostree
+          flatpak remote-add --user --if-not-exists flathub https://dl.flathub.org/repo/flathub.flatpakrepo
+          flatpak install --user -y flathub org.flatpak.Builder
+
+      - name: Allow file:// clones with git>=2.38.1
+        run: |
+          git config --global protocol.file.allow always
+
+      - name: Prepare manifest
+        run: |
+          cd docker
+          rm -rf org.flatpak.Builder/
+          git clone --depth=1 --branch master --recursive --single-branch https://github.com/flathub/org.flatpak.Builder.git
+          cp -vf flatpak-builder-lint-deps.json org.flatpak.Builder/
+          python3 rewrite-manifest.py
+
+      - name: Prepare for hashing
+        run: |
+          flatpak run org.flatpak.Builder --show-manifest --show-manifest \
+            docker/org.flatpak.Builder/org.flatpak.Builder.json >> docker/org.flatpak.Builder/org.flatpak.Builder-cache.json
+
+      # 5.0.5
+      - uses: actions/cache/restore@27d5ce7f107fe9357f9df03efb73ab90386fccae
+        with:
+          path: ${{ github.workspace }}/docker-cache/.flatpak-builder
+          key: ${{ runner.os }}-${{ matrix.platform }}-docker-flatpak-builder-${{ hashFiles('docker/org.flatpak.Builder/org.flatpak.Builder-cache.json') }}
+          restore-keys: |
+            ${{ runner.os }}-${{ matrix.platform }}-docker-flatpak-builder-
+
+      - name: Set Flatpak arch
+        run: |
+          if [ "${{ matrix.platform }}" = "amd64" ]; then
+            echo "FP_ARCH=x86_64" >> $GITHUB_ENV
+          elif [ "${{ matrix.platform }}" = "arm64" ]; then
+            echo "FP_ARCH=aarch64" >> $GITHUB_ENV
+          else
+            echo "Unsupported platform: ${{ matrix.platform }}"
+            exit 1
+          fi
+
+      - name: Build flatpak-builder-lint
+        run: |
+          cd docker/org.flatpak.Builder/
+          dbus-run-session flatpak run org.flatpak.Builder \
+            --state-dir="$GITHUB_WORKSPACE/docker-cache/.flatpak-builder" \
+            --arch="$FP_ARCH" --verbose --user \
+            --force-clean --ccache --install-deps-from=flathub \
+            --default-branch=localtest \
+            --install \
+            builddir org.flatpak.Builder.json
+          rm -rf "builddir/files/lib/debug"
+
+      - name: Build the base image
+        # 6.18.0
+        uses: docker/build-push-action@263435318d21b8e681c14492fe198d362a7d2c83
+        with:
+          context: docker
+          file: docker/Dockerfile
+          platforms: linux/${{ matrix.platform }}
+          push: false
+          provenance: false
+          load: true
+          tags: |
+            ghcr.io/${{ github.repository }}:${{ github.sha }}-${{ matrix.platform }}
+            ghcr.io/${{ github.repository }}:latest-${{ matrix.platform }}
+          labels: |
+            org.opencontainers.image.revision=${{ github.sha }}
+            org.opencontainers.image.source=ssh://git@github.com:${{ github.repository }}.git
+            org.opencontainers.image.url=https://github.com/${{ github.repository }}
+
+      - name: Run a sanity check
+        run: |
+          cd tests/repo/min_success_metadata/gui-app
+          dbus-run-session flatpak run org.flatpak.Builder//localtest --verbose --user --force-clean --repo=repo \
+            --arch="$FP_ARCH" \
+            --mirror-screenshots-url=https://dl.flathub.org/media \
+            --compose-url-policy=full \
+            --install-deps-from=flathub --ccache builddir org.flathub.gui.yaml
+          mkdir -p builddir/files/share/app-info/media
+          ostree commit --repo=repo --canonical-permissions --branch=screenshots/"$FP_ARCH" builddir/files/share/app-info/media
+          docker run -v $(pwd):/mnt --rm ghcr.io/${{ github.repository }}:latest-${{ matrix.platform }} manifest /mnt/org.flathub.gui.yaml
+          docker run -v $(pwd):/mnt --rm ghcr.io/${{ github.repository }}:latest-${{ matrix.platform }} repo /mnt/repo
+
+      - name: Run the tests inside docker
+        run: |
+          docker run --rm --entrypoint= -v $(pwd):/mnt -w /mnt ghcr.io/${{ github.repository }}:latest-${{ matrix.platform }} uv run --frozen -q pytest -n auto -vvv
+
+      - name: Push the images
+        # 6.18.0
+        uses: docker/build-push-action@263435318d21b8e681c14492fe198d362a7d2c83
+        if: success() && github.event_name != 'pull_request'
+        with:
+          context: docker
+          file: docker/Dockerfile
+          platforms: linux/${{ matrix.platform }}
+          push: ${{ github.event_name != 'pull_request' }}
+          provenance: false
+          tags: |
+            ghcr.io/${{ github.repository }}:${{ github.sha }}-${{ matrix.platform }}
+            ghcr.io/${{ github.repository }}:latest-${{ matrix.platform }}
+          labels: |
+            org.opencontainers.image.revision=${{ github.sha }}
+            org.opencontainers.image.source=ssh://git@github.com:${{ github.repository }}.git
+            org.opencontainers.image.url=https://github.com/${{ github.repository }}
+          cache-from: type=gha
+          cache-to: type=gha,mode=max
+
+      - name: Login to ghcr.io using Flathub credentials
+        # 3.6.0
+        uses: docker/login-action@5e57cd118135c172c3672efd75eb46360885c0ef
+        if: github.event_name != 'pull_request' && github.repository == 'flathub-infra/flatpak-builder-lint'
+        with:
+          registry: ghcr.io
+          username: ${{ secrets.FLATHUB_ORG_USER }}
+          password: ${{ secrets.FLATHUB_ORG_TOKEN }}
+
+      - name: Build and push Docker image to the old location
+        # 6.18.0
+        uses: docker/build-push-action@263435318d21b8e681c14492fe198d362a7d2c83
+        if: success() && github.event_name != 'pull_request' && github.repository == 'flathub-infra/flatpak-builder-lint'
+        with:
+          context: docker
+          file: docker/Dockerfile
+          push: ${{ github.event_name != 'pull_request' }}
+          provenance: false
+          tags: |
+            ghcr.io/flathub/flatpak-builder-lint:${{ github.sha }}-${{ matrix.platform }}
+            ghcr.io/flathub/flatpak-builder-lint:latest-${{ matrix.platform }}
+          labels: |
+            org.opencontainers.image.revision=${{ github.sha }}
+            org.opencontainers.image.source=ssh://git@github.com:${{ github.repository }}.git
+            org.opencontainers.image.url=https://github.com/${{ github.repository }}
+          cache-from: type=gha
+          cache-to: type=gha,mode=max
+
+      # 5.0.5
+      - uses: actions/cache/save@27d5ce7f107fe9357f9df03efb73ab90386fccae
+        if: github.repository == 'flathub-infra/flatpak-builder-lint' && github.ref == 'refs/heads/master'
+        with:
+          path: ${{ github.workspace }}/docker-cache/.flatpak-builder
+          key: ${{ runner.os }}-${{ matrix.platform }}-docker-flatpak-builder-${{ hashFiles('docker/org.flatpak.Builder/org.flatpak.Builder-cache.json') }}
+
+  docker-manifest:
+    if: ${{ github.event_name != 'pull_request' }}
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+    needs:
+      - docker
+    concurrency:
+      group: ${{ github.ref }}-docker_manifest
+      cancel-in-progress: true
+    permissions:
+      contents: read
+      packages: write
+    steps:
+        # 6.0.2
+      - uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd
+        with:
+          persist-credentials: false
+
+      - name: Login to ghcr.io
+        # 3.6.0
+        uses: docker/login-action@5e57cd118135c172c3672efd75eb46360885c0ef
+        with:
+          registry: ghcr.io
+          username: ${{ github.actor }}
+          password: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: Create and push manifest
+        run: |
+          docker manifest create \
+            ghcr.io/${{ github.repository }}:${{ github.sha }} \
+            --amend ghcr.io/${{ github.repository }}:${{ github.sha }}-amd64 \
+            --amend ghcr.io/${{ github.repository }}:${{ github.sha }}-arm64
+
+          docker manifest push ghcr.io/${{ github.repository }}:${{ github.sha }}
+
+          docker manifest create \
+            ghcr.io/${{ github.repository }}:latest \
+            --amend ghcr.io/${{ github.repository }}:${{ github.sha }}-amd64 \
+            --amend ghcr.io/${{ github.repository }}:${{ github.sha }}-arm64
+
+          docker manifest push ghcr.io/${{ github.repository }}:latest
+
+      - name: Login to ghcr.io using Flathub credentials
+        # 3.6.0
+        uses: docker/login-action@5e57cd118135c172c3672efd75eb46360885c0ef
+        if: github.event_name != 'pull_request' && github.repository == 'flathub-infra/flatpak-builder-lint'
+        with:
+          registry: ghcr.io
+          username: ${{ secrets.FLATHUB_ORG_USER }}
+          password: ${{ secrets.FLATHUB_ORG_TOKEN }}
+
+      - name: Push manifest to the old location
+        if: github.event_name != 'pull_request' && github.repository == 'flathub-infra/flatpak-builder-lint'
+        run: |
+          docker manifest create \
+            ghcr.io/flathub/flatpak-builder-lint:${{ github.sha }} \
+            --amend ghcr.io/flathub-infra/flatpak-builder-lint:${{ github.sha }}-amd64 \
+            --amend ghcr.io/flathub-infra/flatpak-builder-lint:${{ github.sha }}-arm64
+
+          docker manifest push ghcr.io/flathub/flatpak-builder-lint:${{ github.sha }}
+
+          docker manifest create \
+            ghcr.io/flathub/flatpak-builder-lint:latest \
+            --amend ghcr.io/flathub-infra/flatpak-builder-lint:${{ github.sha }}-amd64 \
+            --amend ghcr.io/flathub-infra/flatpak-builder-lint:${{ github.sha }}-arm64
+
+          docker manifest push ghcr.io/flathub/flatpak-builder-lint:latest
+
+      - name: Set up Docker Buildx
+        # 3.12.0
+        uses: docker/setup-buildx-action@8d2750c68a42422c14e847fe6c8ac0403b4cbd6f
+
+      - name: Login to ghcr.io
+        # 3.6.0
+        uses: docker/login-action@5e57cd118135c172c3672efd75eb46360885c0ef
+        with:
+          registry: ghcr.io
+          username: ${{ github.actor }}
+          password: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: Build and push the unprivileged image
+        # 6.18.0
+        uses: docker/build-push-action@263435318d21b8e681c14492fe198d362a7d2c83
+        with:
+          context: docker
+          file: docker/Dockerfile.unprivileged
+          platforms: linux/amd64,linux/arm64
+          push: true
+          provenance: false
+          no-cache: true
+          build-args: |
+            GITHUB_REPOSITORY=${{ github.repository }}
+            VERSION=${{ github.sha }}
+          tags: |
+            ghcr.io/${{ github.repository }}:${{ github.sha }}-unprivileged
+            ghcr.io/${{ github.repository }}:unprivileged
+          labels: |
+            org.opencontainers.image.revision=${{ github.sha }}
+            org.opencontainers.image.source=ssh://git@github.com:${{ github.repository }}.git
+            org.opencontainers.image.url=https://github.com/${{ github.repository }}

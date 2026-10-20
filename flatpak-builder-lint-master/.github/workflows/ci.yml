@@ -1,0 +1,282 @@
+name: CI
+
+on:
+  push:
+    branches: master
+  pull_request:
+    branches: master
+    types: [opened, edited, reopened, synchronize, ready_for_review]
+  workflow_dispatch:
+  # Keep an active cache
+  schedule:
+    - cron: '0 0 * * 1,5'
+
+env:
+  # Match with fdsdk runtime
+  PYTHON_VERSION: "3.13"
+
+jobs:
+  changes:
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    if: always()
+    permissions:
+      pull-requests: read
+    outputs:
+      src: ${{ steps.filter.outputs.src }}
+      docker: ${{ steps.filter.outputs.docker }}
+      exceptions: ${{ steps.filter.outputs.exceptions }}
+      force_ci: ${{ steps.force.outputs.value }}
+    steps:
+        # 6.0.2
+      - uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd
+        with:
+          fetch-depth: 0
+          persist-credentials: false
+
+      - name: Setup path filters
+        # 3.0.2
+        uses: dorny/paths-filter@de90cc6fb38fc0963ad72b210f1f284cd68cea36
+        id: filter
+        with:
+          filters: |
+            shared: &shared
+              - '.github/**'
+              - 'docker/**'
+              - 'flatpak_builder_lint/!(staticfiles/**)/**'
+              - 'flatpak_builder_lint/staticfiles/flatpak-manifest.schema.json'
+              - 'flatpak_builder_lint/staticfiles/*.py'
+              - 'flatpak_builder_lint/*.py'
+              - 'uv.lock'
+              - 'pyproject.toml'
+            exceptions:
+              - 'flatpak_builder_lint/staticfiles/exceptions.json'
+            src:
+              - *shared
+              - 'tests/**'
+              - 'utils/**'
+            docker:
+              - *shared
+
+      - name: Force full CI for schedule or manual runs
+        if: ${{ (github.event_name == 'schedule' || github.event_name == 'workflow_dispatch')
+               && github.repository == 'flathub-infra/flatpak-builder-lint' }}
+        id: force
+        run: echo "value=true" >> $GITHUB_OUTPUT
+
+  exceptions:
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    permissions:
+      pull-requests: read
+      contents: read
+    needs:
+      - changes
+    if: ${{ needs.changes.outputs.force_ci == 'true' || needs.changes.outputs.exceptions == 'true' }}
+    steps:
+        # 6.0.2
+      - uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd
+        with:
+          fetch-depth: 0
+          persist-credentials: false
+
+        # 6.2.0
+      - uses: actions/setup-python@a309ff8b426b58ec0e2a45f0f869d46889d02405
+        with:
+          python-version: ${{ env.PYTHON_VERSION }}
+
+      - name: Validate exceptions.json
+        run: python3 utils/validator.py
+
+      #- name: Check for new wildcard exceptions
+      #  if: github.event_name == 'pull_request'
+      #  run: python3 utils/check_wildcard_exceptions.py --base-ref origin/master
+
+  ci:
+    strategy:
+      matrix:
+        include:
+          - os: ubuntu-24.04
+            platform: amd64
+          - os: ubuntu-24.04-arm
+            platform: arm64
+    runs-on: ${{matrix.os}}
+    timeout-minutes: 120
+    permissions:
+      contents: read
+    concurrency:
+      group: ci-${{ matrix.platform }}-${{ github.ref }}
+      cancel-in-progress: true
+    needs:
+      - changes
+    if: ${{ needs.changes.outputs.force_ci == 'true' || needs.changes.outputs.src == 'true' }}
+    steps:
+      - name: Free up disk space
+        run: |
+          sudo swapoff -a || true
+          sudo rm -rf /opt/ghc /usr/local/.ghcup || true
+          sudo rm -rf /opt/hostedtoolcache/CodeQL || true
+          sudo rm -rf /usr/local/julia*
+          sudo rm -rf /opt/hostedtoolcache/go /opt/az /opt/microsoft
+          sudo rm -rf /usr/share/miniconda /home/runner/.rustup /home/packer/.rustup /home/runneradmin/.rustup
+          sudo rm -rf /etc/skel/.rustup /opt/hostedtoolcache/node /opt/google-cloud-sdk
+          sudo rm -rf /usr/share/az_* /opt/google /usr/lib/firefox /usr/local/aws-*
+          sudo rm -rf /opt/actionarchivecache /opt/hostedtoolcache/Ruby
+          sudo rm -rf /var/lib/mysql /usr/local/n
+          sudo rm -rf /swapfile || true
+          sudo rm -rf /usr/local/lib/android
+          sudo rm -rf /usr/share/dotnet /usr/share/swift
+          sudo rm -rf /usr/local/share/boost /usr/local/share/powershell
+          sudo rm -rf /usr/lib/google-cloud-sdk /usr/lib/jvm
+          sudo rm -rf /usr/local/graalvm /usr/local/share/chromium
+          sudo rm -rf /usr/local/lib/node_modules
+          sudo rm -rf /usr/lib/dotnet /usr/lib/php /usr/share/mysql
+          sudo rm -rf /usr/lib/llvm-*
+          sudo rm -rf /usr/lib/mono
+          sudo apt-get clean || true
+          sudo rm -rf /var/lib/apt/lists/*
+          timeout 5 df -hHl || true
+          timeout 5 free -h --giga || true
+          timeout 60 sudo du -xh --max-depth=3 / 2>/dev/null | sort -rh | head -40 || true
+
+        # 6.0.2
+      - uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd
+        with:
+          persist-credentials: false
+
+        # 6.2.0
+      - uses: actions/setup-python@a309ff8b426b58ec0e2a45f0f869d46889d02405
+        with:
+          python-version: ${{ env.PYTHON_VERSION }}
+
+      - name: Validate exceptions.json
+        run: python3 utils/validator.py
+
+      - name: Set up dependencies
+        run: |
+          sudo add-apt-repository ppa:flatpak/stable
+          sudo apt-get update
+          sudo apt-get install -y --no-install-recommends jq flatpak \
+            desktop-file-utils elfutils flatpak-builder curl \
+            dbus-daemon libgirepository1.0-dev \
+            gir1.2-ostree-1.0 gzip xmlstarlet libcairo2-dev \
+            gir1.2-appstream-1.0 ostree
+
+      - name: Install uv
+        # 7.2.0
+        uses: astral-sh/setup-uv@61cb8a9741eeb8a550a1b8544337180c0fc8476b
+        with:
+          version: "0.9.21"
+          enable-cache: true
+          save-cache: ${{ github.ref == 'refs/heads/master' }}
+          cache-dependency-glob: |
+            **/uv.lock
+            **/pyproject.toml
+
+      - name: Set version
+        run: ver="$(uvx --isolated dunamai from git --style pep440)" && sed -i -E 's/^version\s*=\s*".*"/version = "'"$ver"'"/' pyproject.toml
+
+      - name: Install python dependencies
+        run: uv sync -v --all-groups --frozen
+
+      - name: Check code formatting
+        run: uv run ruff format --check
+
+      - name: Lint
+        run: uv run ruff check --output-format=github
+
+      - name: Check python types
+        run: uv run mypy .
+
+      - name: Allow file:// clones with git>=2.38.1
+        run: |
+          git config --global protocol.file.allow always
+
+      - name: Check summary files
+        run: |
+          git clone --depth 1 https://github.com/flathub-infra/summary-files.git
+          ostree init --repo=stable_repo
+          mv -vf summary-files/summary/stable.summary stable_repo/summary
+          ostree --repo=stable_repo summary -v|grep "Collection ID (ostree.summary.collection-id): org.flathub.Stable"
+          ostree init --repo=beta_repo
+          mv summary-files/summary/beta.summary beta_repo/summary
+          ostree --repo=beta_repo summary -v|grep "Collection ID (ostree.summary.collection-id): org.flathub.Beta"
+          rm -rf summary-files stable_repo beta_repo
+
+      - name: Set up flathub remote
+        run: |
+          flatpak remote-add --user --if-not-exists flathub https://flathub.org/repo/flathub.flatpakrepo
+          flatpak remote-add --user --if-not-exists flathub-beta https://flathub.org/beta-repo/flathub-beta.flatpakrepo
+
+      - name: Prepare org.flatpak.Builder
+        run: |
+          git clone --depth=1 --branch master --recursive --single-branch https://github.com/flathub/org.flatpak.Builder.git build/org.flatpak.Builder
+          cd build && python3 ../docker/rewrite-manifest.py
+          cd org.flatpak.Builder
+          cp -vf ../../docker/flatpak-builder-lint-deps.json .
+          cp -vf ../../tests/python3-pytest.json .
+          jq '.modules |= map(if . == "flatpak-builder-lint-deps.json" then . , "python3-pytest.json" else . end)' org.flatpak.Builder.json >> org.flatpak.Builder-modified.json
+          mv -vf org.flatpak.Builder-modified.json org.flatpak.Builder.json
+
+      - name: Prepare for hashing
+        run: |
+          flatpak-builder --show-manifest build/org.flatpak.Builder/org.flatpak.Builder.json >> build/org.flatpak.Builder/org.flatpak.Builder-cache.json
+
+      # 5.0.5
+      - uses: actions/cache/restore@27d5ce7f107fe9357f9df03efb73ab90386fccae
+        with:
+          path: ${{ github.workspace }}/cache/.flatpak-builder
+          key: ${{ runner.os }}-${{ matrix.platform }}-ci-flatpak-builder-${{ hashFiles('build/org.flatpak.Builder/org.flatpak.Builder-cache.json') }}
+          restore-keys: |
+            ${{ runner.os }}-${{ matrix.platform }}-ci-flatpak-builder-
+
+      - name: Set Flatpak arch
+        run: |
+          if [ "${{ matrix.platform }}" = "amd64" ]; then
+            echo "FP_ARCH=x86_64" >> $GITHUB_ENV
+          elif [ "${{ matrix.platform }}" = "arm64" ]; then
+            echo "FP_ARCH=aarch64" >> $GITHUB_ENV
+          else
+            echo "Unsupported platform: ${{ matrix.platform }}"
+            exit 1
+          fi
+
+      - name: Build and test org.flatpak.Builder
+        run: |
+          cd build/org.flatpak.Builder
+          flatpak-builder --verbose --user --force-clean \
+            --arch="$FP_ARCH" \
+            --state-dir="$GITHUB_WORKSPACE/cache/.flatpak-builder" \
+            --install-deps-from=flathub --default-branch=localtest \
+            --ccache --keep-build-dirs --install builddir \
+            org.flatpak.Builder.json
+          flatpak run org.flatpak.Builder//localtest --version
+
+      - name: Run test suite
+        run: flatpak run --command=pytest org.flatpak.Builder//localtest -n auto -vvv tests
+
+      - name: Run Flatmanager checks
+        run: bash -c tests/flatmanager.sh
+
+      - name: Run integration tests
+        run: uv run pytest -m integration -vvv
+
+      # 5.0.5
+      - uses: actions/cache/save@27d5ce7f107fe9357f9df03efb73ab90386fccae
+        if: github.repository == 'flathub-infra/flatpak-builder-lint' && github.ref == 'refs/heads/master'
+        with:
+          path: ${{ github.workspace }}/cache/.flatpak-builder
+          key: ${{ runner.os }}-${{ matrix.platform }}-ci-flatpak-builder-${{ hashFiles('build/org.flatpak.Builder/org.flatpak.Builder-cache.json') }}
+
+  docker-call:
+    permissions:
+      contents: read
+      packages: write
+    needs:
+      - changes
+      - ci
+    if: ${{ (github.event_name != 'pull_request' && github.ref == 'refs/heads/master') && (needs.changes.outputs.force_ci == 'true' || needs.changes.outputs.docker == 'true') }}
+    uses: ./.github/workflows/docker.yml
+    secrets:
+      FLATHUB_ORG_USER: ${{ secrets.FLATHUB_ORG_USER }}
+      FLATHUB_ORG_TOKEN: ${{ secrets.FLATHUB_ORG_TOKEN }}

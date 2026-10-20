@@ -1,0 +1,52 @@
+name: Janitor stale exceptions
+
+on:
+  workflow_dispatch:
+  schedule:
+    - cron: '0 0 * * 0'
+
+jobs:
+  janitor:
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write
+      pull-requests: write
+    timeout-minutes: 20
+    steps:
+        # 6.0.2
+      - uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd
+        with:
+          persist-credentials: false
+
+      - name: Purge exceptions
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: python utils/validator.py --repo stable --purge-from-issue 1066
+
+      - name: Validate
+        run: python utils/validator.py
+
+      - name: Check for changes
+        id: diff
+        run: |
+          FILE="flatpak_builder_lint/staticfiles/exceptions.json"
+          if git diff --quiet -- "$FILE"; then
+            echo "changed=false" >> $GITHUB_OUTPUT
+          else
+            echo "changed=true" >> $GITHUB_OUTPUT
+          fi
+
+      - name: Create pull request
+        if: ${{ success() && steps.diff.outputs.changed == 'true' }}
+        # 8.1.0
+        uses: peter-evans/create-pull-request@c0f553fe549906ede9cf27b5156039d195d2ece0
+        with:
+          token: ${{ secrets.GITHUB_TOKEN }}
+          branch-suffix: "random"
+          author: "github-actions[bot] <41898282+github-actions[bot]@users.noreply.github.com>"
+          commit-message: "(Automated) Purge stale exceptions"
+          title: "(Automated) Purge stale exceptions"
+          body: "(Automated) Purge stale exceptions"
+          delete-branch: true
+          sign-commits: true
+          draft: always-true

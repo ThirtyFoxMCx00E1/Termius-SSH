@@ -1,0 +1,10 @@
+PubkeyAuthentication no
+HostbasedAuthentication no
+PermitEmptyPasswords no
+ChallengeResponseAuthentication yes
+PasswordAuthentication no  # yes option does not work with otp and password
+LogLevel DEBUG3
+SyslogFacility AUTH
+UsePAM yes
+Subsystem       sftp    /usr/lib/openssh/sftp-server
+PrintLastLog no

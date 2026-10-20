@@ -1,0 +1,67 @@
+{
+    "app-id": "org.flathub.modules2",
+    "modules": [
+        {
+            "name": "module1",
+            "sources": [
+                {
+                    "type": "git"
+                }
+            ]
+        },
+        {
+            "name": "module2",
+            "sources": [
+                {
+                    "type": "git",
+                    "path": "../"
+                }
+            ]
+        },
+        {
+            "name": "module3",
+            "sources": [
+                {
+                    "type": "git",
+                    "url": "ssh://foobar2.git",
+                    "tag": "foo"
+                }
+            ]
+        },
+        {
+            "name": "module4",
+            "sources": [
+                {
+                    "type": "git",
+                    "url": "https://example.org/foobar2.git"
+                }
+            ]
+        },
+        {
+            "name": "module5",
+            "sources": [
+                {
+                    "type": "git",
+                    "url": "https://example.org/foobar2.git",
+                    "branch": "foobarfoo"
+                }
+            ]
+        },
+        {
+            "name": "module6",
+            "buildsystem": "cmake-ninja",
+            "sources": [
+                {
+                    "type": "git",
+                    "url": "https://example.com/foo.git",
+                    "commit": "deadbeef"
+                },
+                {
+                    "type": "git",
+                    "url": "https://example.com/bar.git",
+                    "commit": "deadbeef"
+                }
+            ]
+        }
+    ]
+}

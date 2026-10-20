@@ -1,0 +1,23 @@
+[build-system]
+requires = ["setuptools>=61.2"]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "pylint-celery"
+version = "0.3"
+description = "pylint-celery is a Pylint plugin to aid Pylint in recognising and understanding errors caused when using the Celery library"
+authors = [
+    { name = "landscape.io", email = "code@landscape.io" }
+]
+license = { text = "GPLv2" }
+keywords = ["pylint", "celery", "plugin"]
+readme = ""
+requires-python = ">=3.6"
+dependencies = [
+    "pylint>=1.0",
+    "astroid>=1.0",
+    "pylint-plugin-utils>=0.2.1"
+]
+
+[project.urls]
+Homepage = "https://github.com/landscapeio/pylint-celery"

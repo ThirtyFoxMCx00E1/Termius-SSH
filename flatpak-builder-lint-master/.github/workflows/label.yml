@@ -1,0 +1,26 @@
+name: Label pull requests
+
+# WARNING: Do NOT use org level secrets or checkout any code in this
+# workflow
+
+on:
+  pull_request_target:
+    types: [opened, edited, reopened, synchronize, ready_for_review]
+    branches:
+      - master
+    paths:
+      - 'flatpak_builder_lint/staticfiles/exceptions.json'
+  workflow_dispatch:
+
+jobs:
+  label:
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+      pull-requests: write
+    steps:
+      # 6.1.0
+      - uses: actions/labeler@f27b608878404679385c85cfa523b85ccb86e213
+        with:
+          repo-token: ${{ secrets.GITHUB_TOKEN }}
+          sync-labels: true

@@ -1,0 +1,14 @@
+{
+    "app-id": "org.electronjs.Electron200.BaseApp",
+    "runtime": "foo",
+    "sdk": "bar",
+    "command": "foo",
+    "build-extension": true,
+    "finish-args": ["--foo=bar"],
+    "modules": [
+        {
+            "name": "module2",
+            "buildsystem": "autotools"
+        }
+    ]
+}

@@ -1,0 +1,9 @@
+PubkeyAuthentication yes
+PasswordAuthentication yes
+HostbasedAuthentication no
+AllowGroups remote
+AuthorizedKeysFile .ssh/authorized_keys
+LogLevel DEBUG3
+SyslogFacility AUTH
+AuthenticationMethods publickey,password
+PrintLastLog no

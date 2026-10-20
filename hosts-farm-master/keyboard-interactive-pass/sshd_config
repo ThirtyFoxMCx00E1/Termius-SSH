@@ -1,0 +1,8 @@
+PubkeyAuthentication no
+HostbasedAuthentication no
+PasswordAuthentication no
+AllowGroups remote
+LogLevel DEBUG3
+SyslogFacility AUTHPRIV
+UsePAM yes
+PrintLastLog no

@@ -1,0 +1,11 @@
+# Copyright (c) 2025, Termius Corporation.
+
+- name: Delete a host
+  uri:
+    url: "{{ api_url }}/v1/host/{{ host_id
+                                | default(hostvars[inventory_hostname][host_id_key]
+                                | default(inventory_hostname)) }}/"
+    method: DELETE
+    status_code: [ 200, 204 ]
+  ignore_errors: yes
+  delegate_to: localhost

@@ -1,0 +1,40 @@
+{
+    "app-id": "org.flathub.modules",
+    "add-extensions": {
+        "org.freedesktop.LinuxAudio.Plugins.sample": {
+            "directory": "extensions/Plugins",
+            "bundle": true
+        },
+        "org.flathub.modules.BundledExtension": {
+            "directory": "foo/bar",
+            "bundle": true
+        },
+        "org.flathub.example.BundledExtension": {
+            "directory": "foo/bar",
+            "bundle": true
+        }
+    },
+    "modules": [
+        {
+            "name": "module1",
+            "buildsystem": "cmake",
+            "config-opts": [
+                "-DCMAKE_BUILD_TYPE=Debug"
+            ],
+            "cleanup": [
+                "/lib/debug"
+            ],
+            "sources": [
+                {
+                    "type": "archive",
+                    "url": "https://example.com/foo.tar.gz",
+                    "sha1": "deadbeef"
+                },
+                {
+                    "type": "dir",
+                    "path": "."
+                }
+            ]
+        }
+    ]
+}

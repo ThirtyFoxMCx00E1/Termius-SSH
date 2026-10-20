@@ -1,0 +1,9 @@
+[Application]
+name=org.flathub.dconf-access
+runtime=org.freedesktop.Platform/x86_64/23.08
+
+[Context]
+filesystems=xdg-run/dconf;
+
+[Session Bus Policy]
+ca.desrt.dconf=talk

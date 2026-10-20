@@ -1,0 +1,32 @@
+[Application]
+name=org.flathub.finish_args
+runtime=org.freedesktop.Platform/x86_64/23.08
+
+[Context]
+share=!network;
+sockets=x11;wayland;session-bus;fallback-x11;!cups;gpg-agent;ssh-auth;inherit-wayland-socket;
+devices=all;!dri;
+filesystems=home;xdg-config/kdeglobals:ro;host;/run/media/foo;~/.var/app;/tmp/foo;~/.local/share/flatpak;/var;home/.icons;~/.themes;home/.fonts/;~/.gnupg;~/.ssh;~/.config/autostart;~/.local/share/applications;~/.config/systemd;~/.cache;~/.local;host-root;host-etc;host-os;~/.var/app/foo/;~/.local/share/flatpak/foo;
+
+[Session Bus Policy]
+org.freedesktop.portal.*=talk
+org.freedesktop.*=talk
+org.gnome.*=own
+org.kde.*=own
+org.freedesktop.Flatpak=talk
+org.flathub.finish_args=own
+org.mpris.MediaPlayer2.org.flathub.finish_args.*=talk
+org.kde.StatusNotifierItem=own
+org.gtk.vfs=talk
+org.freedesktop.DBus.foo=talk
+org.mpris.MediaPlayer2.org.flathub.finish_args=own
+org.freedesktop.impl.portal.PermissionStore=own
+org.foo.bar=none
+org.freedesktop.systemd1=talk
+org.freedesktop.login1=own
+org.kde.KWin=own
+org.kde.plasmashell=talk
+
+[System Bus Policy]
+org.gnome.*=own
+org.freedesktop.DBus.foo=talk

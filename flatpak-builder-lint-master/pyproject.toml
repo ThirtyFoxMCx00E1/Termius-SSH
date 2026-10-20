@@ -1,0 +1,144 @@
+[build-system]
+requires = ["setuptools>=61"]
+build-backend = "setuptools.build_meta"
+
+[tool.setuptools]
+include-package-data = true
+
+[tool.setuptools.packages.find]
+where = ["."]
+include = [
+  "flatpak_builder_lint",
+  "flatpak_builder_lint.checks",
+  "flatpak_builder_lint.staticfiles"
+]
+exclude = ["**/__pycache__"]
+
+[tool.setuptools.package-data]
+flatpak_builder_lint = [
+  "staticfiles/flathub-stable.summary",
+  "staticfiles/flathub-beta.summary",
+  "staticfiles/*.json"
+]
+
+[project]
+name = "flatpak_builder_lint"
+version = "3.0.0"
+description = "A linter for flatpak-builder manifests"
+authors = [
+  {name = "Bartłomiej Piotrowski", email = "b@bpiotrowski.pl"},
+  {name = "bbhtt", email = "bbhtt@bbhtt.in"},
+]
+license = {text = "MIT"}
+readme = "README.md"
+requires-python = "<4.0,>=3.10"
+dependencies = [
+    "jsonschema<5.0.0,>=4.23.0",
+    "requests>=2.32.4,<3",
+    "lxml<7.0.0,>=5.3.0",
+    "PyGObject==3.48.2",
+    "requests-cache<2.0.0,>=1.2.1",
+    "ruamel.yaml<1.0.0,>=0.18.14",
+    "publicsuffixlist>=1.0.2.20250802,<2",
+]
+
+[project.urls]
+Homepage = "https://github.com/flathub-infra/flatpak-builder-lint"
+Documentation = "https://docs.flathub.org/docs/for-app-authors/linter"
+Repository = "https://github.com/flathub-infra/flatpak-builder-lint.git"
+Issues = "https://github.com/flathub-infra/flatpak-builder-lint/issues"
+
+[project.scripts]
+flatpak-builder-lint = "flatpak_builder_lint.cli:main"
+
+[dependency-groups]
+dev = [
+    "pytest<10.0.0,>=8.3.3",
+    "pytest-xdist>=3.8.0,<4.0.0",
+    "mypy<2.0.0,>=1.11.2",
+    "ruff<1.0.0,>=0.6.7",
+    "pre-commit<5.0.0,>=3.8.0",
+    "types-requests<3.0.0.0,>=2.32.0.20240914",
+    "types-jsonschema<5.0.0.0,>=4.23.0.20240813",
+    "types-lxml<2027.0.0,>=2024.9.16",
+    "PyGObject-stubs<3.0.0,>=2.11.0",
+]
+
+[tool.mypy]
+check_untyped_defs = true
+disallow_any_generics = true
+disallow_any_unimported = true
+disallow_incomplete_defs = true
+disallow_subclassing_any = true
+disallow_untyped_calls = true
+disallow_untyped_decorators = true
+disallow_untyped_defs = true
+extra_checks = true
+no_implicit_optional = true
+no_implicit_reexport = true
+show_error_codes = true
+strict = true
+strict_equality = true
+warn_redundant_casts = true
+warn_return_any = true
+warn_unused_configs = true
+warn_unused_ignores = true
+cache_dir = "~/.cache/mypy"
+
+[tool.ruff]
+line-length = 100
+include = ["*.py"]
+target-version = "py310"
+
+[tool.ruff.lint]
+select = [
+  "A",
+  "ARG",
+  "B",
+  "C4",
+  "DTZ",
+  "E",
+  "ERA",
+  "F",
+  "I",
+  "ICN",
+  "PIE",
+  "PL",
+  "Q",
+  "RET",
+  "RSE",
+  "RUF",
+  "S",
+  "SIM",
+  "T201",
+  "UP",
+  "W",
+]
+
+ignore = [
+  "PLR2004",
+  "PLR0911",
+  "PLR0912",
+  "PLR0913",
+  "PLR0915",
+  "S105",
+  "S607",
+  "S603",
+  "ERA001",
+]
+
+[tool.ruff.format]
+line-ending = "lf"
+quote-style = "double"
+
+[tool.ruff.lint.per-file-ignores]
+"tests/*" = ["S101", "B017"]
+
+[tool.pytest.ini_options]
+addopts = "--ignore=tests/repo --ignore=tests/test_httpserver.py -m 'not integration'"
+testpaths = [
+    "tests",
+]
+markers = [
+    "integration: integration tests requiring flatpak, flatpak-builder, dbus and network",
+]

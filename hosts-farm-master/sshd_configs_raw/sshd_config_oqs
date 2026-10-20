@@ -1,0 +1,9 @@
+PubkeyAuthentication yes
+HostbasedAuthentication no
+PasswordAuthentication no
+AllowGroups remote
+AuthorizedKeysFile .ssh/authorized_keys
+LogLevel DEBUG3
+SyslogFacility AUTHPRIV
+PrintLastLog no
+PubkeyAcceptedAlgorithms +ssh-mldsa-44,ssh-mldsa-65,ssh-mldsa-87

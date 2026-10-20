@@ -1,0 +1,17 @@
+sudo: false
+language: python
+python:
+  - "3.6"
+
+before_install:
+  - pip install codecov
+
+install:
+  - python setup.py -q develop
+
+script:
+  - cd test_project
+  - coverage run --source ../versionfield manage.py test versionfield 
+
+after_success:
+  - codecov
