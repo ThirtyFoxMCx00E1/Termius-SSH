@@ -1,0 +1,58 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<title>MP Termius - server console</title>
+<meta name="description" content="Phone-friendly console for the MP Multiplayer servers: 24/7 status of every region, live server list, ping and the web terminal of each HiveMQ server.">
+<meta http-equiv="Content-Security-Policy" content="default-src 'self'; script-src 'self'; style-src 'self'; connect-src 'self' wss: https://api.github.com; frame-src https:; img-src 'self' data:; worker-src blob:; base-uri 'none'; form-action 'none'">
+<meta name="referrer" content="no-referrer">
+<meta name="theme-color" content="#0d0b0a">
+<link rel="stylesheet" href="termius.css">
+<link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 32 32'%3E%3Crect width='32' height='32' rx='7' fill='%23171310'/%3E%3Ctext x='16' y='22' font-family='monospace' font-size='16' font-weight='700' text-anchor='middle' fill='%237fc77a'%3E%3E_%3C/text%3E%3C/svg%3E">
+</head>
+<body>
+<header class="bar">
+  <a class="brand" href="https://thirtyfoxmcx00e1.github.io/Sa-mp/">MP <span>Termius</span></a>
+  <span id="live" class="live"><span class="dot"></span><span id="live-t">starting…</span></span>
+</header>
+
+<main>
+  <section class="hosts" aria-label="Regions">
+    <div id="hosts" class="grid"></div>
+  </section>
+
+  <section class="term" aria-label="Terminal">
+    <div class="tabs">
+      <button class="tab on" data-v="shell" type="button">MP shell</button>
+      <button class="tab" data-v="web" type="button">Server console</button>
+    </div>
+    <div id="v-shell" class="view">
+      <div id="out" class="out" role="log" aria-live="polite"></div>
+      <form id="f" class="prompt" autocomplete="off">
+        <label for="in" class="ps">mp@lobby:~$</label>
+        <input id="in" type="text" spellcheck="false" autocapitalize="off" enterkeyhint="send" aria-label="Command">
+      </form>
+      <div class="keys" id="keys">
+        <button type="button" data-c="status">status</button>
+        <button type="button" data-c="servers">servers</button>
+        <button type="button" data-c="ping">ping</button>
+        <button type="button" data-c="regions">regions</button>
+        <button type="button" data-c="console">console</button>
+        <button type="button" data-c="ssh">ssh</button>
+        <button type="button" data-c="help">help</button>
+        <button type="button" data-c="clear">clear</button>
+      </div>
+    </div>
+    <div id="v-web" class="view" hidden>
+      <div class="webbar"><select id="csel" aria-label="Region console"></select><a id="copen" class="btn" href="#" target="_blank" rel="noopener">Open in new tab</a></div>
+      <iframe id="cframe" title="Server console" referrerpolicy="no-referrer"></iframe>
+      <p id="cnote" class="note">No region has a web console yet. Install a region with <code>cloud-init/user-data.yaml</code> from the HiveMQ repo; its console appears here (https://your-domain:7681, login admin).</p>
+    </div>
+  </section>
+</main>
+<footer class="foot"><a href="https://thirtyfoxmcx00e1.github.io/Sa-mp/">Website</a> · <a href="regions.txt">regions.txt</a> · <a href="https://github.com/ThirtyFoxMCx00E1/HiveMQ">HiveMQ kit</a> · <a href="https://github.com/ThirtyFoxMCx00E1/Sa-mp/releases/latest">Download the mod</a></footer>
+<script src="vendor/mqtt-5.10.1.min.js"></script>
+<script src="termius.js"></script>
+</body>
+</html>

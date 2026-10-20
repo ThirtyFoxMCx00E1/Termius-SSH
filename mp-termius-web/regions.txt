@@ -1,0 +1,33 @@
+# MP Multiplayer - regional brokers. The mod (2.20+) downloads this file, measures the ping of
+# every region and uses the fastest one. Server lists are shared between regions by MpBridge.
+#
+# Fill in one block per region after running install.sh on that region's server
+# (sudo /path/to/HiveMQ/tools/make-regions.sh prints the blocks). Keys:
+#   host / port / tls / user / pass  -> used by the mod (MQTT, port 1883)
+#   web / web_user / web_pass        -> used by this website (secure WebSocket, needs a domain + TLS)
+# The "mp" and "web" logins are public on purpose: the broker's topic rules limit what they can do.
+# Never put the bridge or admin password here.
+#
+# While no region is filled in, everyone uses the free public lobby (same as 2.19).
+
+# [Asia]
+# host=asia-yourname.duckdns.org
+# port=1883
+# tls=0
+# user=mp
+# pass=CHANGE_ME
+# web=wss://asia-yourname.duckdns.org:8884/mqtt
+# web_user=web
+# web_pass=CHANGE_ME
+
+# [Europe]
+# host=eu-yourname.duckdns.org
+# ...
+
+# [NA]
+# host=na-yourname.duckdns.org
+# ...
+
+# [Oceania]
+# host=oc-yourname.duckdns.org
+# ...
