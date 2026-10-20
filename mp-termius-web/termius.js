@@ -172,7 +172,7 @@
     if (key === lastSel) return;
     lastSel = key;
     sel.innerHTML = opts.map(function (o) { return '<option value="' + o[0] + '">' + esc(o[1]) + '</option>'; }).join('');
-    $('cnote').hidden = opts.length > 0; sel.hidden = !opts.length; $('copen').hidden = !opts.length;
+    $('cnote').hidden = opts.length > 0; sel.hidden = !opts.length; $('copen').hidden = !opts.length; $('cframe').hidden = !opts.length; document.querySelector('.webbar').hidden = !opts.length;
     if (opts.length) showConsole(+sel.value, false);
   }
   function showConsole(i, load) {
@@ -222,9 +222,9 @@
       prune();
       var all = Array.from(servers.values()).sort(function (a, b) { return b.players - a.players || a.name.localeCompare(b.name); });
       if (!all.length) { p('m', 'No servers online right now. Host one from the game and it shows up here.'); return; }
-      p('a', 'NAME                             REGION    PLAYERS');
+      p('a', all.length + ' server' + (all.length === 1 ? '' : 's') + ' online');
       all.forEach(function (s) {
-        print(esc((s.name + ' '.repeat(33)).slice(0, 33)) + esc(((REG[s.region] || '?') + '          ').slice(0, 10)) + '<span class="' + (s.max && s.players >= s.max ? 'r' : 'g') + '">' + s.players + '/' + s.max + '</span>' + (s.port === 1922 && /mp lan server/i.test(s.name) ? ' <span class="c">24/7</span>' : ''));
+        print('<span class="' + (s.max && s.players >= s.max ? 'r' : 'g') + '">' + s.players + '/' + s.max + '</span>  ' + esc(s.name || 'Unnamed server') + ' <span class="m">· ' + esc(REG[s.region] || '?') + ' · port ' + s.port + '</span>' + (s.port === 1922 && /mp lan server/i.test(s.name) ? ' <span class="c">24/7</span>' : ''));
       });
     },
     ping: function () { p('m', 'measuring…'); measure().then(function () { CMDS.status(); }); },

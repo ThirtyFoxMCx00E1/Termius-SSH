@@ -5,9 +5,9 @@ body{margin:0;background:var(--bg);color:var(--text);font:14px/1.5 var(--mono);d
 a{color:var(--c)}
 code{color:var(--a)}
 .bar{display:flex;align-items:center;justify-content:space-between;gap:12px;padding:10px 14px;border-bottom:1px solid var(--line);background:#100d0b;position:sticky;top:0;z-index:2}
-.brand{color:var(--a);font-weight:700;text-decoration:none;font-size:16px}
+.brand{color:var(--a);font-weight:700;text-decoration:none;font-size:16px;white-space:nowrap;flex:none}
 .brand span{color:var(--text)}
-.live{display:flex;align-items:center;gap:8px;color:var(--muted);font-size:12px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.live{min-width:0;display:flex;align-items:center;gap:8px;color:var(--muted);font-size:12px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
 .dot{width:9px;height:9px;border-radius:50%;background:var(--muted);flex:none}
 .ok .dot,.dot.ok{background:var(--g);box-shadow:0 0 8px var(--g)}
 .bad .dot,.dot.bad{background:var(--r)}
@@ -43,3 +43,4 @@ iframe{flex:1;width:100%;min-height:420px;border:0;background:#000}
 .note{color:var(--muted);padding:12px;margin:0}
 .foot{color:var(--muted);text-align:center;padding:12px;font-size:12px}
 :focus-visible{outline:2px solid var(--a);outline-offset:2px}
+@media (max-width:560px){.grid{grid-template-columns:1fr 1fr;gap:8px}.host{padding:8px 10px}.host .s{font-size:11px}main{padding:8px}iframe{min-height:60vh}}
